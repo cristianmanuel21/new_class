@@ -1,0 +1,68 @@
+// Función que obtiene el menor valor entre 'perObligaProp' y 'perObligaReal', usando '202307' si alguno es nulo
+function obtenerMenorPeriodo(numRuc) {
+  return db.obligacion.aggregate([
+    // 1. Filtramos por el numRuc proporcionado
+    {
+      $match: {
+        numRuc: numRuc
+      }
+    },
+    // 2. Desestructuramos el array lisRegistroElectronico para procesar cada elemento individualmente
+    {
+      $unwind: "$lisRegistroElectronico"
+    },
+    // 3. Calculamos el menor valor entre perObligaProp y perObligaReal, utilizando '202307' si alguno es nulo
+    {
+      $project: {
+        _id: 0, // No necesitamos el _id en los resultados
+        codUbigeo: 1,
+        numRuc: 1,
+        // Asignamos el valor por defecto '202307' si perObligaProp o perObligaReal son nulos
+        perObligaProp: {
+          $cond: {
+            if: { $eq: ["$lisRegistroElectronico.perObligaProp", null] },
+            then: 202307,
+            else: { $toInt: "$lisRegistroElectronico.perObligaProp" }
+          }
+        },
+        perObligaReal: {
+          $cond: {
+            if: { $eq: ["$lisRegistroElectronico.perObligaReal", null] },
+            then: 202307,
+            else: { $toInt: "$lisRegistroElectronico.perObligaReal" }
+          }
+        },
+        // Calculamos el menor de los dos periodos, con el valor predeterminado considerado
+        menorPeriodo: {
+          $min: [
+            { $cond: { if: { $ne: ["$lisRegistroElectronico.perObligaProp", null] }, then: { $toInt: "$lisRegistroElectronico.perObligaProp" }, else: 202307 } },
+            { $cond: { if: { $ne: ["$lisRegistroElectronico.perObligaReal", null] }, then: { $toInt: "$lisRegistroElectronico.perObligaReal" }, else: 202307 } }
+          ]
+        }
+      }
+    }
+  ]);
+}
+
+// Ejecutar la función con un ejemplo de numRuc
+const resultado = obtenerMenorPeriodo("0011223352");
+
+// Imprimir el resultado
+printjson(resultado.toArray());
+
+
+
+
+Explicación de Cambios:
+Asignación de valores predeterminados:
+
+perObligaProp: Usamos $cond para asignar el valor 202307 si perObligaProp es null. Si no es null, convertimos el valor a un entero con $toInt.
+perObligaReal: Hacemos lo mismo que con perObligaProp, asignando el valor 202307 si es nulo.
+Cálculo del menor valor:
+
+Usamos $min para obtener el menor valor entre perObligaProp y perObligaReal. Ambas propiedades ya se han ajustado para que utilicen 202307 si son nulas.
+Agregación:
+
+Utilizamos una sola agregación en MongoDB para filtrar y calcular el menor periodo, manejando valores nulos de manera eficiente y asegurándonos de que siempre se compare un valor válido.
+Resultado:
+Si cualquiera de los periodos es null, se reemplazará automáticamente por el periodo 202307. Así garantizas que siempre haya un valor válido para la comparación.
